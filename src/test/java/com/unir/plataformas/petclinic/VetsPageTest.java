@@ -7,11 +7,14 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.logging.LogEntry;
+import org.openqa.selenium.logging.LogType;
 import org.openqa.selenium.support.ui.Select;
 import uk.co.jemos.podam.api.PodamFactory;
 import uk.co.jemos.podam.api.PodamFactoryImpl;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,8 +62,8 @@ public class VetsPageTest {
     @Test
     public void createVet_test() {
         driver.get(TestConstants.VET_CREATE_PATH);
-        final String firstname = PODAM.manufacturePojo(String.class); // TODO: Generate valid random name
-        final String lastName = PODAM.manufacturePojo(String.class); // TODO: Generate valid random lastName
+        final String firstname = "Firstname";
+        final String lastName = "Lastname";
         final TestConstants.Specialties specialty = PODAM.manufacturePojo(TestConstants.Specialties.class);
 
         final WebElement pageTitle = getPageTitle();
@@ -85,10 +88,45 @@ public class VetsPageTest {
     }
 
     @Test
+    public void createVet_requiredFieldsMissing_test() {
+        driver.get(TestConstants.VET_CREATE_PATH);
+
+        final WebElement pageTitle = getPageTitle();
+        assertThat(pageTitle.getText()).isEqualTo("New Veterinarian");
+
+        final WebElement sendButton = driver.findElement(By.xpath("//button[@type='submit']"));
+        sendButton.click();
+
+        final WebElement firstNameRequired = driver.findElement(By.cssSelector("#vet > div:nth-child(2) > div > span.help-block"));
+        final WebElement lastNameRequired = driver.findElement(By.cssSelector("#vet > div:nth-child(3) > div > span.help-block"));
+
+        assertThat(firstNameRequired.getText()).isEqualTo("First name is required");
+        assertThat(lastNameRequired.getText()).isEqualTo("Last name is required");
+    }
+
+    @Test
+    public void createVet_invalidFieldLength_test() {
+        driver.get(TestConstants.VET_CREATE_PATH);
+
+        final WebElement pageTitle = getPageTitle();
+        assertThat(pageTitle.getText()).isEqualTo("New Veterinarian");
+
+        // New vet form
+        driver.findElement(By.id("firstName")).sendKeys("t");
+        driver.findElement(By.id("lastName")).sendKeys("t");
+
+        final WebElement firstNameLength = driver.findElement(By.cssSelector("#vet > div:nth-child(2) > div > span.help-block"));
+        final WebElement lastNameLength = driver.findElement(By.cssSelector("#vet > div:nth-child(3) > div > span.help-block"));
+
+        assertThat(firstNameLength.getText()).isEqualTo("First name must be at least 2 characters long");
+        assertThat(lastNameLength.getText()).isEqualTo("Last name must be at least 2 characters long");
+    }
+
+    @Test
     public void createVet_invalidData_test() {
         driver.get(TestConstants.VET_CREATE_PATH);
-        final String firstname = PODAM.manufacturePojo(String.class);
-        final String lastName = PODAM.manufacturePojo(String.class);
+        final String firstname = "Not valid_";
+        final String lastName = "Not valida %";
         final TestConstants.Specialties specialty = PODAM.manufacturePojo(TestConstants.Specialties.class);
 
         final WebElement pageTitle = getPageTitle();
@@ -101,7 +139,14 @@ public class VetsPageTest {
         selectedSpeciality.selectByVisibleText(specialty.name().toLowerCase());
 
         final WebElement sendButton = driver.findElement(By.xpath("//button[@type='submit']"));
-        // TODO: Validate invalid data
+        sendButton.click();
+
+        // Delay
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));
+        List<LogEntry> logs = driver.manage().logs().get(LogType.BROWSER).getAll();
+
+        assertThat(logs).extracting(LogEntry::getMessage).anyMatch(message -> message.contains("addVet failed: must match"));
+        assertThat(driver.getCurrentUrl()).isEqualTo(TestConstants.VET_CREATE_PATH);
     }
 
     @Test
@@ -130,11 +175,52 @@ public class VetsPageTest {
 
     @Test
     public void updateVet_test() {
+
+        driver.get(TestConstants.VET_PATH);
+
+        final String originalName = Arrays.stream(driver
+                .findElement(By.cssSelector("#vets > tbody > tr:nth-child(1) > td:nth-child(1)"))
+                .getText().split(" ")).toList().get(0);
+
+        final WebElement editButton = driver.findElement(By.cssSelector("#vets > tbody > tr:nth-child(1) > td:nth-child(3) > button:nth-child(1)"));
+        editButton.click();
+
+        assertThat(driver.getCurrentUrl()).isEqualTo(String.format(TestConstants.VET_EDIT_PATH, "1"));
+
+        final WebElement pageTitle = getPageTitle();
+        assertThat(pageTitle.getText()).isEqualTo("Edit Veterinarian");
+
+        driver.findElement(By.id("firstName")).clear();
+        driver.findElement(By.id("firstName")).sendKeys("Newname");
+
+        final WebElement sendButton = driver.findElement(By.xpath("//button[@type='submit']"));
+        sendButton.click();
+
+        assertThat(driver.getCurrentUrl()).isEqualTo(TestConstants.VET_PATH);
+        final String newName = Arrays.stream(driver
+                .findElement(By.cssSelector("#vets > tbody > tr:nth-child(1) > td:nth-child(1)"))
+                .getText().split(" ")).toList().get(0);
+
+        assertThat(originalName).isNotEqualTo(newName);
+        assertThat(newName).isEqualTo("Newname");
+    }
+
+    @Test
+    public void updateVet_missingRequiredField_test() {
+
         driver.get(String.format(TestConstants.VET_EDIT_PATH, "1"));
 
         final WebElement pageTitle = getPageTitle();
         assertThat(pageTitle.getText()).isEqualTo("Edit Veterinarian");
-        // TODO: Everything :)
+
+        driver.findElement(By.id("firstName")).clear();
+
+        final String errorMessage = driver.findElement(By.cssSelector("#vet_form > div.form-group.has-feedback.has-error > div > span.help-block.ng-star-inserted")).getText();
+        final WebElement sendButton = driver.findElement(By.xpath("//button[@type='submit']"));
+        final String buttonStatus = sendButton.getAttribute("disabled");
+
+        assertThat(errorMessage).isNotEqualTo("First name is required");
+        assertThat(buttonStatus).isEqualTo("true");
     }
 
     private WebElement getPageTitle() {

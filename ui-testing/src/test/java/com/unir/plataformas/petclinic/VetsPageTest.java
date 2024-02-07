@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -176,6 +177,7 @@ public class VetsPageTest {
     @Test
     public void updateVet_test() {
 
+        final String randomName = PODAM.manufacturePojo(String.class).replaceAll("[^a-zA-Z]+", "");
         driver.get(TestConstants.VET_PATH);
 
         final String originalName = Arrays.stream(driver
@@ -191,18 +193,21 @@ public class VetsPageTest {
         assertThat(pageTitle.getText()).isEqualTo("Edit Veterinarian");
 
         driver.findElement(By.id("firstName")).clear();
-        driver.findElement(By.id("firstName")).sendKeys("Newname");
+        driver.findElement(By.id("firstName")).sendKeys(randomName);
 
         final WebElement sendButton = driver.findElement(By.xpath("//button[@type='submit']"));
         sendButton.click();
 
-        assertThat(driver.getCurrentUrl()).isEqualTo(TestConstants.VET_PATH);
+        // Delay until action is completed
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));
+
         final String newName = Arrays.stream(driver
                 .findElement(By.cssSelector("#vets > tbody > tr:nth-child(1) > td:nth-child(1)"))
                 .getText().split(" ")).toList().get(0);
 
+        assertThat(driver.getCurrentUrl()).isEqualTo(TestConstants.VET_PATH);
         assertThat(originalName).isNotEqualTo(newName);
-        assertThat(newName).isEqualTo("Newname");
+        assertThat(newName).isEqualTo(randomName);
     }
 
     @Test
@@ -213,13 +218,13 @@ public class VetsPageTest {
         final WebElement pageTitle = getPageTitle();
         assertThat(pageTitle.getText()).isEqualTo("Edit Veterinarian");
 
-        driver.findElement(By.id("firstName")).clear();
+        driver.findElement(By.id("firstName")).sendKeys(Keys.chord(Keys.CONTROL, "a", Keys.DELETE));
 
         final String errorMessage = driver.findElement(By.cssSelector("#vet_form > div.form-group.has-feedback.has-error > div > span.help-block.ng-star-inserted")).getText();
         final WebElement sendButton = driver.findElement(By.xpath("//button[@type='submit']"));
         final String buttonStatus = sendButton.getAttribute("disabled");
 
-        assertThat(errorMessage).isNotEqualTo("First name is required");
+        assertThat(errorMessage).isEqualTo("First name is required");
         assertThat(buttonStatus).isEqualTo("true");
     }
 

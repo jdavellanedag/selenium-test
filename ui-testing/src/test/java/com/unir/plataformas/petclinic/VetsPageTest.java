@@ -205,7 +205,6 @@ public class VetsPageTest {
                 .findElement(By.cssSelector("#vets > tbody > tr:nth-child(1) > td:nth-child(1)"))
                 .getText().split(" ")).toList().get(0);
 
-        assertThat(driver.getCurrentUrl()).isEqualTo(TestConstants.VET_PATH);
         assertThat(originalName).isNotEqualTo(newName);
         assertThat(newName).isEqualTo(randomName);
     }

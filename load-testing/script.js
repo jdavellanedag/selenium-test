@@ -13,11 +13,9 @@
 
 import http from "k6/http";
 import { group, check, sleep } from "k6";
-import { Trend } from "k6/metrics";
 
 const BASE_URL = "http://localhost:9966/petclinic";
-const uptimeTrendCheck = new Trend("GET_API_uptime");
-const addVetTrendCheck = new Trend("POST_Create_vet");
+
 // Sleep duration between successive requests.
 // You might want to edit the value of this variable or remove calls to the sleep function on the script.
 const SLEEP_DURATION = 0.1;
@@ -32,21 +30,22 @@ export let options = {
 };
 
 export default function () {
-  group("/api/vets", () => {
-    // Request No. 1: listVets
+  group("List all vets", () => {
+    // Request: listVets
     {
       let url = BASE_URL + `/api/vets`;
       let request = http.get(url);
 
-      uptimeTrendCheck.add(request.timings.duration);
       check(request, {
         "Vets found and returned.": (r) => r.status === 200,
       });
 
       sleep(SLEEP_DURATION);
     }
+  });
 
-    // Request No. 2: addVet
+  group("Create vets", () => {
+    // Request: addVet
     {
       let url = BASE_URL + `/api/vets`;
 
@@ -62,26 +61,9 @@ export default function () {
       let params = { headers: { "Content-Type": "application/json", Accept: "application/json" } };
       let request = http.post(url, JSON.stringify(body), params);
 
-      addVetTrendCheck.add(request.timings.duration);
       check(request, {
         "Vet created successfully.": (r) => r.status === 201,
       });
-    }
-  });
-
-  group("/api/vets/{vetId}", () => {
-    let vetId = "1"; // specify value as there is no example value for this parameter in OpenAPI spec
-
-    // Request No. 1: getVet
-    {
-      let url = BASE_URL + `/api/vets/${vetId}`;
-      let request = http.get(url);
-
-      check(request, {
-        "Vet details found and returned.": (r) => r.status === 200,
-      });
-
-      sleep(SLEEP_DURATION);
     }
   });
 }
